@@ -6,15 +6,23 @@ public enum FrameStreamError: Error {
     case couldNotAddOutput
     case couldNotSetPreset
     case couldNotCreateInput
-    case couldNotCreateDevice
+    case couldNotDiscoverAnyDevices
 }
 
 public struct FrameStreamSettings {
-    let deviceType: AVCaptureDevice.DeviceType
-    let position: AVCaptureDevice.Position
-    let preset: AVCaptureSession.Preset
-    let videoSettings: [String: Int]
-    let qualityOfService: DispatchQoS
+    public let deviceTypes: [AVCaptureDevice.DeviceType]
+    public let position: AVCaptureDevice.Position
+    public let preset: AVCaptureSession.Preset
+    public let videoSettings: [String: Int]
+    public let qualityOfService: DispatchQoS
+
+    public init(deviceTypes: [AVCaptureDevice.DeviceType], position: AVCaptureDevice.Position, preset: AVCaptureSession.Preset, videoSettings: [String: Int], qualityOfService: DispatchQoS) {
+        self.deviceTypes = deviceTypes
+        self.position = position
+        self.preset = preset
+        self.videoSettings = videoSettings
+        self.qualityOfService = qualityOfService
+    }
 }
 
 let session = AVCaptureSession()
@@ -38,9 +46,10 @@ public func startFrameStream(to outputDelegate: FrameStreamOutputDelegate, using
         throw FrameStreamError.alreadyRunning
     }
 
-    // create the device
-    guard let device = AVCaptureDevice.default(settings.deviceType, for: .video, position: settings.position) else {
-        throw FrameStreamError.couldNotCreateDevice
+    // discover the best available device
+    let discovered = AVCaptureDevice.DiscoverySession(deviceTypes: settings.deviceTypes, mediaType: .video, position: settings.position)
+    guard let device = discovered.devices.first else {
+        throw FrameStreamError.couldNotDiscoverAnyDevices
     }
 
     // create the output and input
