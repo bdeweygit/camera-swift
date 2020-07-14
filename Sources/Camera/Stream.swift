@@ -103,9 +103,11 @@ public func startFrameStream(to outputDelegate: FrameStreamOutputDelegate, using
 }
 
 public func stopFrameStream() {
-    sessionQueue.async {
-        // stop and clean the session
-        session.stopRunning()
-        cleanSession()
+    if session.isRunning {
+        sessionQueue.async {
+            // stop and clean the session
+            session.stopRunning()
+            cleanSession()
+        }
     }
 }
