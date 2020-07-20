@@ -13,14 +13,12 @@ public struct FrameStreamSettings {
     public let deviceTypes: [AVCaptureDevice.DeviceType]
     public let position: AVCaptureDevice.Position
     public let preset: AVCaptureSession.Preset
-    public let videoSettings: [String: Int]
     public let qualityOfService: DispatchQoS
 
-    public init(deviceTypes: [AVCaptureDevice.DeviceType], position: AVCaptureDevice.Position, preset: AVCaptureSession.Preset, videoSettings: [String: Int], qualityOfService: DispatchQoS) {
+    public init(deviceTypes: [AVCaptureDevice.DeviceType], position: AVCaptureDevice.Position, preset: AVCaptureSession.Preset, qualityOfService: DispatchQoS) {
         self.deviceTypes = deviceTypes
         self.position = position
         self.preset = preset
-        self.videoSettings = videoSettings
         self.qualityOfService = qualityOfService
     }
 }
@@ -89,9 +87,8 @@ public func startFrameStream(to outputDelegate: FrameStreamOutputDelegate, using
     let proxyOutputDelegate = ProxyOutputDelegate(proxying: outputDelegate)
     let outputQueue = DispatchQueue(label: "Camera.FrameStreamOutputQueue", qos: settings.qualityOfService, attributes: [], autoreleaseFrequency: .workItem)
 
-    // set delegate, queue, and video settings
+    // set delegate and queue
     output.setSampleBufferDelegate(proxyOutputDelegate, queue: outputQueue)
-    output.videoSettings = settings.videoSettings
 
     // commit session configuration atomically
     session.commitConfiguration()
