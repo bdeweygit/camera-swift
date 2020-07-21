@@ -38,73 +38,77 @@ func cleanSession() {
     session.commitConfiguration()
 }
 
-public func startFrameStream(to outputDelegate: FrameStreamOutputDelegate, using settings: FrameStreamSettings) throws {
-    // throw if already running
-    if session.isRunning {
-        throw FrameStreamError.alreadyRunning
-    }
-
-    // discover the best available device
-    let discovered = AVCaptureDevice.DiscoverySession(deviceTypes: settings.deviceTypes, mediaType: .video, position: settings.position)
-    guard let device = discovered.devices.first else {
-        throw FrameStreamError.couldNotDiscoverAnyDevices
-    }
-
-    // create the output and input
-    let output = AVCaptureVideoDataOutput()
-    guard let input = try? AVCaptureDeviceInput(device: device) else {
-        throw FrameStreamError.couldNotCreateInput
-    }
-
-    // clean the session before configuring it
-    cleanSession()
-
-    // begin session configuration
-    session.beginConfiguration()
-
-    // set preset
-    if !session.canSetSessionPreset(settings.preset) {
-        session.commitConfiguration()
-        throw FrameStreamError.couldNotSetPreset
-    }
-    session.sessionPreset = settings.preset
-
-    // add input
-    if !session.canAddInput(input) {
-        session.commitConfiguration()
-        throw FrameStreamError.couldNotAddInput
-    }
-    session.addInput(input)
-
-    // add ouput
-    if !session.canAddOutput(output) {
-        session.commitConfiguration()
-        throw FrameStreamError.couldNotAddOutput
-    }
-    session.addOutput(output)
-
-    // create the proxy output delegate and output queue
-    let proxyOutputDelegate = ProxyOutputDelegate(proxying: outputDelegate)
-    let outputQueue = DispatchQueue(label: "Camera.FrameStreamOutputQueue", qos: settings.qualityOfService, attributes: [], autoreleaseFrequency: .workItem)
-
-    // set delegate and queue
-    output.setSampleBufferDelegate(proxyOutputDelegate, queue: outputQueue)
-
-    // commit session configuration atomically
-    session.commitConfiguration()
-
-    // start the session
+public func startFrameStream(to outputDelegate: FrameStreamOutputDelegate, using settings: FrameStreamSettings, completion: @escaping (FrameStreamError?) -> Void) {
     sessionQueue.async {
+        // throw if already running
+        if session.isRunning {
+            return completion(FrameStreamError.alreadyRunning)
+        }
+
+        // discover the best available device
+        let discovered = AVCaptureDevice.DiscoverySession(deviceTypes: settings.deviceTypes, mediaType: .video, position: settings.position)
+        guard let device = discovered.devices.first else {
+            return completion(FrameStreamError.couldNotDiscoverAnyDevices)
+        }
+
+        // create the output and input
+        let output = AVCaptureVideoDataOutput()
+        guard let input = try? AVCaptureDeviceInput(device: device) else {
+            return completion(FrameStreamError.couldNotCreateInput)
+        }
+
+        // clean the session before configuring it
+        cleanSession()
+
+        // begin session configuration
+        session.beginConfiguration()
+
+        // set preset
+        if !session.canSetSessionPreset(settings.preset) {
+            session.commitConfiguration()
+            return completion(FrameStreamError.couldNotSetPreset)
+        }
+        session.sessionPreset = settings.preset
+
+        // add input
+        if !session.canAddInput(input) {
+            session.commitConfiguration()
+            return completion(FrameStreamError.couldNotAddInput)
+        }
+        session.addInput(input)
+
+        // add ouput
+        if !session.canAddOutput(output) {
+            session.commitConfiguration()
+            return completion(FrameStreamError.couldNotAddOutput)
+        }
+        session.addOutput(output)
+
+        // create the proxy output delegate and output queue
+        let proxyOutputDelegate = ProxyOutputDelegate(proxying: outputDelegate)
+        let outputQueue = DispatchQueue(label: "Camera.FrameStreamOutputQueue", qos: settings.qualityOfService, attributes: [], autoreleaseFrequency: .workItem)
+
+        // set delegate and queue
+        output.setSampleBufferDelegate(proxyOutputDelegate, queue: outputQueue)
+
+        // commit session configuration atomically
+        session.commitConfiguration()
+
+        // start the session
         session.startRunning()
+
+        completion(nil)
     }
 }
 
-public func stopFrameStream() {
-    if session.isRunning {
-        sessionQueue.async {
+public func stopFrameStream(completion: @escaping () -> Void) {
+    sessionQueue.async {
+        if session.isRunning {
             // stop and clean the session
             session.stopRunning()
             cleanSession()
+
+            completion()
         }
     }
 }
