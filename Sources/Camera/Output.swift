@@ -1,7 +1,7 @@
 import AVFoundation
 
 public protocol FrameStreamOutputDelegate: class {
-    func frameStream(didOutput frame: CVImageBuffer, with description: CMFormatDescription)
+    func frameStream(didOutput frame: CVImageBuffer)
 }
 
 class ProxyOutputDelegate: NSObject, AVCaptureVideoDataOutputSampleBufferDelegate {
@@ -12,10 +12,10 @@ class ProxyOutputDelegate: NSObject, AVCaptureVideoDataOutputSampleBufferDelegat
     }
 
     public func captureOutput(_ output: AVCaptureOutput, didOutput sampleBuffer: CMSampleBuffer, from connection: AVCaptureConnection) {
-        // get the frame and description
-        if let frame = CMSampleBufferGetImageBuffer(sampleBuffer), let description = CMSampleBufferGetFormatDescription(sampleBuffer) {
-            // forward them to the proxied output delegate
-            self.proxied.frameStream(didOutput: frame, with: description)
+        // get the frame
+        if let frame = CMSampleBufferGetImageBuffer(sampleBuffer) {
+            // forward it to the proxied output delegate
+            self.proxied.frameStream(didOutput: frame)
         }
     }
 }
