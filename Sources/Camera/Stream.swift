@@ -1,12 +1,18 @@
 import AVFoundation
 
-public enum FrameStreamError: Error {
-    case alreadyRunning
+public enum StartFrameStreamResult {
+    case success
     case couldNotAddInput
     case couldNotAddOutput
+    case wasAlreadyStarted
     case couldNotSetPreset
     case couldNotCreateInput
     case couldNotDiscoverAnyDevices
+}
+
+public enum StopFrameStreamResult {
+    case success
+    case wasAlreadyStopped
 }
 
 public struct FrameStreamSettings {
@@ -38,23 +44,23 @@ func cleanSession() {
     session.commitConfiguration()
 }
 
-public func startFrameStream(to outputDelegate: FrameStreamOutputDelegate, using settings: FrameStreamSettings, completion: @escaping (FrameStreamError?) -> Void) {
+public func startFrameStream(to outputDelegate: FrameStreamOutputDelegate, using settings: FrameStreamSettings, completion: @escaping (StartFrameStreamResult) -> Void) {
     sessionQueue.async {
-        // throw if already running
+        // check if already running
         if session.isRunning {
-            return completion(FrameStreamError.alreadyRunning)
+            return completion(.wasAlreadyStarted)
         }
 
         // discover the best available device
         let discovered = AVCaptureDevice.DiscoverySession(deviceTypes: settings.deviceTypes, mediaType: .video, position: settings.position)
         guard let device = discovered.devices.first else {
-            return completion(FrameStreamError.couldNotDiscoverAnyDevices)
+            return completion(.couldNotDiscoverAnyDevices)
         }
 
         // create the output and input
         let output = AVCaptureVideoDataOutput()
         guard let input = try? AVCaptureDeviceInput(device: device) else {
-            return completion(FrameStreamError.couldNotCreateInput)
+            return completion(.couldNotCreateInput)
         }
 
         // clean the session before configuring it
@@ -66,21 +72,21 @@ public func startFrameStream(to outputDelegate: FrameStreamOutputDelegate, using
         // set preset
         if !session.canSetSessionPreset(settings.preset) {
             session.commitConfiguration()
-            return completion(FrameStreamError.couldNotSetPreset)
+            return completion(.couldNotSetPreset)
         }
         session.sessionPreset = settings.preset
 
         // add input
         if !session.canAddInput(input) {
             session.commitConfiguration()
-            return completion(FrameStreamError.couldNotAddInput)
+            return completion(.couldNotAddInput)
         }
         session.addInput(input)
 
         // add ouput
         if !session.canAddOutput(output) {
             session.commitConfiguration()
-            return completion(FrameStreamError.couldNotAddOutput)
+            return completion(.couldNotAddOutput)
         }
         session.addOutput(output)
 
@@ -97,18 +103,20 @@ public func startFrameStream(to outputDelegate: FrameStreamOutputDelegate, using
         // start the session
         session.startRunning()
 
-        completion(nil)
+        completion(.success)
     }
 }
 
-public func stopFrameStream(completion: @escaping () -> Void) {
+public func stopFrameStream(completion: @escaping (StopFrameStreamResult) -> Void) {
     sessionQueue.async {
         if session.isRunning {
             // stop and clean the session
             session.stopRunning()
             cleanSession()
 
-            completion()
+            completion(.success)
+        } else {
+            completion(.wasAlreadyStopped)
         }
     }
 }
