@@ -30,6 +30,7 @@ public struct FrameStreamSettings {
 }
 
 let session = AVCaptureSession()
+let proxyOutputDelegate = ProxyOutputDelegate()
 let sessionQueue = DispatchQueue(label: "Camera.FrameStreamSessionQueue", attributes: [], autoreleaseFrequency: .workItem)
 
 func cleanSession() {
@@ -90,8 +91,8 @@ public func startFrameStream(to outputDelegate: FrameStreamOutputDelegate, using
         }
         session.addOutput(output)
 
-        // create the proxy output delegate and output queue
-        let proxyOutputDelegate = ProxyOutputDelegate(proxying: outputDelegate)
+        // proxy the output delegate and create the output queue
+        proxyOutputDelegate.proxied = outputDelegate
         let outputQueue = DispatchQueue(label: "Camera.FrameStreamOutputQueue", qos: settings.qualityOfService, attributes: [], autoreleaseFrequency: .workItem)
 
         // set delegate and queue
