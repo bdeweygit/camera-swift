@@ -44,7 +44,7 @@ func cleanSession() {
     session.commitConfiguration()
 }
 
-public func startFrameStream(to outputDelegate: FrameStreamOutputDelegate, using settings: FrameStreamSettings, completion: @escaping (StartFrameStreamResult) -> Void) {
+public func startFrameStream(to outputDelegate: FrameStreamOutputDelegate, using settings: FrameStreamSettings, completionHandler completion: @escaping (StartFrameStreamResult) -> Void) {
     sessionQueue.async {
         // check if already running
         if session.isRunning {
@@ -107,7 +107,7 @@ public func startFrameStream(to outputDelegate: FrameStreamOutputDelegate, using
     }
 }
 
-public func stopFrameStream(completion: @escaping (StopFrameStreamResult) -> Void) {
+public func stopFrameStream(completionHandler completion: @escaping (StopFrameStreamResult) -> Void) {
     sessionQueue.async {
         if session.isRunning {
             // stop and clean the session
