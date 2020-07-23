@@ -1,17 +1,17 @@
 import AVFoundation
 
-public protocol FrameStreamOutputDelegate: class {
-    func frameStream(didOutput frame: CVImageBuffer, at orientation: AVCaptureVideoOrientation)
+public protocol ImageStreamOutputDelegate: class {
+    func imageStream(didOutput image: CVImageBuffer, at orientation: AVCaptureVideoOrientation)
 }
 
 class ProxyOutputDelegate: NSObject, AVCaptureVideoDataOutputSampleBufferDelegate {
-    weak var proxied: FrameStreamOutputDelegate?
+    weak var proxied: ImageStreamOutputDelegate?
 
     func captureOutput(_ output: AVCaptureOutput, didOutput sampleBuffer: CMSampleBuffer, from connection: AVCaptureConnection) {
-        // get the frame
-        if let frame = CMSampleBufferGetImageBuffer(sampleBuffer) {
-            // forward frame and orientation to the proxied output delegate
-            self.proxied?.frameStream(didOutput: frame, at: connection.videoOrientation)
+        // get the image
+        if let image = CMSampleBufferGetImageBuffer(sampleBuffer) {
+            // forward image and orientation to the proxied output delegate
+            self.proxied?.imageStream(didOutput: image, at: connection.videoOrientation)
         }
     }
 }

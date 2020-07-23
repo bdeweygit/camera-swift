@@ -8,41 +8,41 @@ let wasInterrupted = NSNotification.Name.AVCaptureSessionWasInterrupted
 let interruptionEnded = NSNotification.Name.AVCaptureSessionInterruptionEnded
 
 // runtime error
-public func frameStreamRuntimeErrorNotification(add observer: Any, calling selector: Selector) {
+public func imageStreamRuntimeErrorNotification(add observer: Any, calling selector: Selector) {
     notifications.addObserver(observer, selector: selector, name: runtimeError, object: session)
 }
-public func frameStreamRuntimeErrorNotification(remove observer: Any) {
+public func imageStreamRuntimeErrorNotification(remove observer: Any) {
     notifications.removeObserver(observer, name: runtimeError, object: session)
 }
 
 // did start running
-public func frameStreamDidStartRunningNotification(add observer: Any, calling selector: Selector) {
+public func imageStreamDidStartRunningNotification(add observer: Any, calling selector: Selector) {
     notifications.addObserver(observer, selector: selector, name: didStartRunning, object: session)
 }
-public func frameStreamDidStartRunningNotification(remove observer: Any) {
+public func imageStreamDidStartRunningNotification(remove observer: Any) {
     notifications.removeObserver(observer, name: didStartRunning, object: session)
 }
 
 // did stop running
-public func frameStreamDidStopRunningNotification(add observer: Any, calling selector: Selector) {
+public func imageStreamDidStopRunningNotification(add observer: Any, calling selector: Selector) {
     notifications.addObserver(observer, selector: selector, name: didStopRunning, object: session)
 }
-public func frameStreamDidStopRunningNotification(remove observer: Any) {
+public func imageStreamDidStopRunningNotification(remove observer: Any) {
     notifications.removeObserver(observer, name: didStopRunning, object: session)
 }
 
 // was interrupted
-public func frameStreamWasInterrupedNotification(add observer: Any, calling selector: Selector) {
+public func imageStreamWasInterrupedNotification(add observer: Any, calling selector: Selector) {
     notifications.addObserver(observer, selector: selector, name: wasInterrupted, object: session)
 }
-public func frameStreamWasInterrupedNotification(remove observer: Any) {
+public func imageStreamWasInterrupedNotification(remove observer: Any) {
     notifications.removeObserver(observer, name: wasInterrupted, object: session)
 }
 
 // interruption ended
-public func frameStreamInterruptionEndedNotification(add observer: Any, calling selector: Selector) {
+public func imageStreamInterruptionEndedNotification(add observer: Any, calling selector: Selector) {
     notifications.addObserver(observer, selector: selector, name: interruptionEnded, object: session)
 }
-public func frameStreamInterruptionEndedNotification(remove observer: Any) {
+public func imageStreamInterruptionEndedNotification(remove observer: Any) {
     notifications.removeObserver(observer, name: interruptionEnded, object: session)
 }

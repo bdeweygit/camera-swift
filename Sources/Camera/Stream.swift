@@ -1,6 +1,6 @@
 import AVFoundation
 
-public enum StartFrameStreamResult {
+public enum StartImageStreamResult {
     case success
     case couldNotAddInput
     case couldNotAddOutput
@@ -10,12 +10,12 @@ public enum StartFrameStreamResult {
     case couldNotDiscoverAnyDevices
 }
 
-public enum StopFrameStreamResult {
+public enum StopImageStreamResult {
     case success
     case wasAlreadyStopped
 }
 
-public struct FrameStreamSettings {
+public struct ImageStreamSettings {
     public let deviceTypes: [AVCaptureDevice.DeviceType]
     public let position: AVCaptureDevice.Position
     public let preset: AVCaptureSession.Preset
@@ -31,7 +31,7 @@ public struct FrameStreamSettings {
 
 let session = AVCaptureSession()
 let proxyOutputDelegate = ProxyOutputDelegate()
-let sessionQueue = DispatchQueue(label: "Camera.FrameStreamSessionQueue", attributes: [], autoreleaseFrequency: .workItem)
+let sessionQueue = DispatchQueue(label: "Camera.ImageStreamSessionQueue", attributes: [], autoreleaseFrequency: .workItem)
 
 func cleanSession() {
     // begin session configuration
@@ -45,7 +45,7 @@ func cleanSession() {
     session.commitConfiguration()
 }
 
-public func startFrameStream(to outputDelegate: FrameStreamOutputDelegate, using settings: FrameStreamSettings, completionHandler completion: @escaping (StartFrameStreamResult) -> Void) {
+public func startImageStream(to outputDelegate: ImageStreamOutputDelegate, using settings: ImageStreamSettings, completionHandler completion: @escaping (StartImageStreamResult) -> Void) {
     sessionQueue.async {
         // check if already running
         if session.isRunning {
@@ -93,7 +93,7 @@ public func startFrameStream(to outputDelegate: FrameStreamOutputDelegate, using
 
         // proxy the output delegate and create the output queue
         proxyOutputDelegate.proxied = outputDelegate
-        let outputQueue = DispatchQueue(label: "Camera.FrameStreamOutputQueue", qos: settings.qualityOfService, attributes: [], autoreleaseFrequency: .workItem)
+        let outputQueue = DispatchQueue(label: "Camera.ImageStreamOutputQueue", qos: settings.qualityOfService, attributes: [], autoreleaseFrequency: .workItem)
 
         // set delegate and queue
         output.setSampleBufferDelegate(proxyOutputDelegate, queue: outputQueue)
@@ -108,7 +108,7 @@ public func startFrameStream(to outputDelegate: FrameStreamOutputDelegate, using
     }
 }
 
-public func stopFrameStream(completionHandler completion: @escaping (StopFrameStreamResult) -> Void) {
+public func stopImageStream(completionHandler completion: @escaping (StopImageStreamResult) -> Void) {
     sessionQueue.async {
         if session.isRunning {
             // stop and clean the session
