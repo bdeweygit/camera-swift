@@ -4,16 +4,16 @@ public enum StartImageStreamResult {
     case success
     case couldNotAddInput
     case couldNotAddOutput
-    case wasAlreadyStarted
     case couldNotSetPreset
     case couldNotCreateInput
     case sessionFailedToStart
+    case sessionIsAlreadyRunning
     case couldNotDiscoverAnyDevices
 }
 
 public enum StopImageStreamResult {
     case success
-    case wasAlreadyStopped
+    case sessionIsAlreadyNotRunning
 }
 
 public struct CameraSettings {
@@ -46,9 +46,9 @@ func cleanSession() {
 
 public func startImageStream(to outputDelegate: ImageStreamOutputDelegate, withQualityOf qos: DispatchQoS, using settings: CameraSettings, completionHandler completion: @escaping (StartImageStreamResult) -> Void) {
     sessionQueue.async {
-        // check if already running
-        if session.isRunning {
-            return completion(.wasAlreadyStarted)
+        // verify session is not running
+        guard !session.isRunning else {
+            return completion(.sessionIsAlreadyRunning)
         }
 
         // discover the best available device
@@ -70,21 +70,21 @@ public func startImageStream(to outputDelegate: ImageStreamOutputDelegate, withQ
         session.beginConfiguration()
 
         // set preset
-        if !session.canSetSessionPreset(settings.preset) {
+        guard session.canSetSessionPreset(settings.preset) else {
             session.commitConfiguration()
             return completion(.couldNotSetPreset)
         }
         session.sessionPreset = settings.preset
 
         // add input
-        if !session.canAddInput(input) {
+        guard session.canAddInput(input) else {
             session.commitConfiguration()
             return completion(.couldNotAddInput)
         }
         session.addInput(input)
 
         // add ouput
-        if !session.canAddOutput(output) {
+        guard session.canAddOutput(output) else {
             session.commitConfiguration()
             return completion(.couldNotAddOutput)
         }
@@ -103,24 +103,25 @@ public func startImageStream(to outputDelegate: ImageStreamOutputDelegate, withQ
         // start the session
         session.startRunning()
 
-        if session.isRunning {
-            completion(.success)
-        } else {
-            completion(.sessionFailedToStart)
+        // verify session is running
+        guard session.isRunning else {
+            return completion(.sessionFailedToStart)
         }
+        completion(.success)
     }
 }
 
 public func stopImageStream(completionHandler completion: @escaping (StopImageStreamResult) -> Void) {
     sessionQueue.async {
-        if session.isRunning {
-            // stop and clean the session
-            session.stopRunning()
-            cleanSession()
-
-            completion(.success)
-        } else {
-            completion(.wasAlreadyStopped)
+        // verify session is running
+        guard session.isRunning else {
+            return completion(.sessionIsAlreadyNotRunning)
         }
+
+        // stop and clean the session
+        session.stopRunning()
+        cleanSession()
+
+        completion(.success)
     }
 }
