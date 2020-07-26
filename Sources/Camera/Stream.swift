@@ -15,17 +15,15 @@ public enum StopImageStreamResult {
     case wasAlreadyStopped
 }
 
-public struct ImageStreamSettings {
+public struct CameraSettings {
     public let deviceTypes: [AVCaptureDevice.DeviceType]
     public let position: AVCaptureDevice.Position
     public let preset: AVCaptureSession.Preset
-    public let qualityOfService: DispatchQoS
 
-    public init(deviceTypes: [AVCaptureDevice.DeviceType], position: AVCaptureDevice.Position, preset: AVCaptureSession.Preset, qualityOfService: DispatchQoS) {
+    public init(deviceTypes: [AVCaptureDevice.DeviceType], position: AVCaptureDevice.Position, preset: AVCaptureSession.Preset) {
         self.deviceTypes = deviceTypes
         self.position = position
         self.preset = preset
-        self.qualityOfService = qualityOfService
     }
 }
 
@@ -45,7 +43,7 @@ func cleanSession() {
     session.commitConfiguration()
 }
 
-public func startImageStream(to outputDelegate: ImageStreamOutputDelegate, using settings: ImageStreamSettings, completionHandler completion: @escaping (StartImageStreamResult) -> Void) {
+public func startImageStream(to outputDelegate: ImageStreamOutputDelegate, withQualityOf qos: DispatchQoS, using settings: CameraSettings, completionHandler completion: @escaping (StartImageStreamResult) -> Void) {
     sessionQueue.async {
         // check if already running
         if session.isRunning {
@@ -93,7 +91,7 @@ public func startImageStream(to outputDelegate: ImageStreamOutputDelegate, using
 
         // proxy the output delegate and create the output queue
         proxyOutputDelegate.proxied = outputDelegate
-        let outputQueue = DispatchQueue(label: "Camera.ImageStreamOutputQueue", qos: settings.qualityOfService, attributes: [], autoreleaseFrequency: .workItem)
+        let outputQueue = DispatchQueue(label: "Camera.ImageStreamOutputQueue", qos: qos, attributes: [], autoreleaseFrequency: .workItem)
 
         // set delegate and queue
         output.setSampleBufferDelegate(proxyOutputDelegate, queue: outputQueue)
