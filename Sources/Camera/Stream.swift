@@ -7,6 +7,7 @@ public enum StartImageStreamResult {
     case wasAlreadyStarted
     case couldNotSetPreset
     case couldNotCreateInput
+    case sessionFailedToStart
     case couldNotDiscoverAnyDevices
 }
 
@@ -102,7 +103,11 @@ public func startImageStream(to outputDelegate: ImageStreamOutputDelegate, withQ
         // start the session
         session.startRunning()
 
-        completion(.success)
+        if session.isRunning {
+            completion(.success)
+        } else {
+            completion(.sessionFailedToStart)
+        }
     }
 }
 
