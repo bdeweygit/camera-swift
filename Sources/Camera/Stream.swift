@@ -32,16 +32,41 @@ let session = AVCaptureSession()
 let proxyOutputDelegate = ProxyOutputDelegate()
 let sessionQueue = DispatchQueue(label: "Camera.ImageStreamSessionQueue", attributes: [], autoreleaseFrequency: .workItem)
 
-func cleanSession() {
-    // begin session configuration
-    session.beginConfiguration()
-
-    // remove inputs and outputs
+func configureSession(_ outputDelegate: ImageStreamOutputDelegate, _ qos: DispatchQoS, _ settings: CameraSettings, _ input: AVCaptureDeviceInput, _ output: AVCaptureVideoDataOutput) -> StartImageStreamResult {
+    // remove any prior inputs and outputs
     session.inputs.forEach { input in session.removeInput(input)}
     session.outputs.forEach { output in session.removeOutput(output)}
 
-    // commit session configuration atomically
-    session.commitConfiguration()
+    // begin and later commit configuration
+    session.beginConfiguration()
+    defer { session.commitConfiguration() }
+
+    // set preset
+    guard session.canSetSessionPreset(settings.preset) else {
+        return .couldNotSetPreset
+    }
+    session.sessionPreset = settings.preset
+
+    // add input
+    guard session.canAddInput(input) else {
+        return .couldNotAddInput
+    }
+    session.addInput(input)
+
+    // add ouput
+    guard session.canAddOutput(output) else {
+        return .couldNotAddOutput
+    }
+    session.addOutput(output)
+
+    // proxy the output delegate and create the output queue
+    proxyOutputDelegate.proxied = outputDelegate
+    let outputQueue = DispatchQueue(label: "Camera.ImageStreamOutputQueue", qos: qos, attributes: [], autoreleaseFrequency: .workItem)
+
+    // set delegate and queue
+    output.setSampleBufferDelegate(proxyOutputDelegate, queue: outputQueue)
+
+    return .success
 }
 
 public func startImageStream(to outputDelegate: ImageStreamOutputDelegate, withQualityOf qos: DispatchQoS, using settings: CameraSettings, completionHandler completion: @escaping (StartImageStreamResult) -> Void) {
@@ -63,42 +88,11 @@ public func startImageStream(to outputDelegate: ImageStreamOutputDelegate, withQ
             return completion(.couldNotCreateInput)
         }
 
-        // clean the session before configuring it
-        cleanSession()
-
-        // begin session configuration
-        session.beginConfiguration()
-
-        // set preset
-        guard session.canSetSessionPreset(settings.preset) else {
-            session.commitConfiguration()
-            return completion(.couldNotSetPreset)
+        // configure the session
+        let result = configureSession(outputDelegate, qos, settings, input, output)
+        guard result == .success else {
+            return completion(result)
         }
-        session.sessionPreset = settings.preset
-
-        // add input
-        guard session.canAddInput(input) else {
-            session.commitConfiguration()
-            return completion(.couldNotAddInput)
-        }
-        session.addInput(input)
-
-        // add ouput
-        guard session.canAddOutput(output) else {
-            session.commitConfiguration()
-            return completion(.couldNotAddOutput)
-        }
-        session.addOutput(output)
-
-        // proxy the output delegate and create the output queue
-        proxyOutputDelegate.proxied = outputDelegate
-        let outputQueue = DispatchQueue(label: "Camera.ImageStreamOutputQueue", qos: qos, attributes: [], autoreleaseFrequency: .workItem)
-
-        // set delegate and queue
-        output.setSampleBufferDelegate(proxyOutputDelegate, queue: outputQueue)
-
-        // commit session configuration atomically
-        session.commitConfiguration()
 
         // start the session
         session.startRunning()
@@ -107,6 +101,7 @@ public func startImageStream(to outputDelegate: ImageStreamOutputDelegate, withQ
         guard session.isRunning else {
             return completion(.sessionFailedToStart)
         }
+
         completion(.success)
     }
 }
@@ -118,9 +113,8 @@ public func stopImageStream(completionHandler completion: @escaping (StopImageSt
             return completion(.sessionIsAlreadyNotRunning)
         }
 
-        // stop and clean the session
+        // stop the session
         session.stopRunning()
-        cleanSession()
 
         completion(.success)
     }
