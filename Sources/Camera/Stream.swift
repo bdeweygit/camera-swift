@@ -1,5 +1,11 @@
 import AVFoundation
 
+public typealias CameraSettings = (
+    preset: AVCaptureSession.Preset,
+    position: AVCaptureDevice.Position,
+    deviceTypes: [AVCaptureDevice.DeviceType]
+)
+
 public enum StartImageStreamResult {
     case success
     case couldNotAddInput
@@ -14,18 +20,6 @@ public enum StartImageStreamResult {
 public enum StopImageStreamResult {
     case success
     case sessionIsAlreadyNotRunning
-}
-
-public struct CameraSettings {
-    public let deviceTypes: [AVCaptureDevice.DeviceType]
-    public let position: AVCaptureDevice.Position
-    public let preset: AVCaptureSession.Preset
-
-    public init(deviceTypes: [AVCaptureDevice.DeviceType], position: AVCaptureDevice.Position, preset: AVCaptureSession.Preset) {
-        self.deviceTypes = deviceTypes
-        self.position = position
-        self.preset = preset
-    }
 }
 
 let session = AVCaptureSession()
