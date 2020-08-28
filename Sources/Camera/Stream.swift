@@ -63,7 +63,7 @@ func configureSession(_ outputDelegate: ImageStreamOutputDelegate, _ qos: Dispat
     return .success
 }
 
-public func startImageStream(to outputDelegate: ImageStreamOutputDelegate, withQualityOf qos: DispatchQoS, using settings: CameraSettings, completionHandler completion: @escaping (StartImageStreamResult) -> Void) {
+public func startImageStreamTo(_ outputDelegate: ImageStreamOutputDelegate, withQualityOf qos: DispatchQoS, using settings: CameraSettings, _ completion: @escaping (StartImageStreamResult) -> Void) {
     sessionQueue.async {
         // verify session is not running
         guard !session.isRunning else {
@@ -100,7 +100,7 @@ public func startImageStream(to outputDelegate: ImageStreamOutputDelegate, withQ
     }
 }
 
-public func stopImageStream(completionHandler completion: @escaping (StopImageStreamResult) -> Void) {
+public func stopImageStream(_ completion: @escaping (StopImageStreamResult) -> Void) {
     sessionQueue.async {
         // verify session is running
         guard session.isRunning else {
