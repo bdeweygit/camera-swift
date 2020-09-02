@@ -9,9 +9,9 @@ class ProxyOutputDelegate: NSObject, AVCaptureVideoDataOutputSampleBufferDelegat
 
     func captureOutput(_ output: AVCaptureOutput, didOutput sampleBuffer: CMSampleBuffer, from connection: AVCaptureConnection) {
         // get the image
-        if let image = CMSampleBufferGetImageBuffer(sampleBuffer) {
-            // forward image and orientation to the proxied output delegate
-            self.proxied?.imageStreamDidOutput(image, at: connection.videoOrientation)
-        }
+        guard let image = CMSampleBufferGetImageBuffer(sampleBuffer) else { return }
+
+        // forward image and orientation to the proxied output delegate
+        self.proxied?.imageStreamDidOutput(image, at: connection.videoOrientation)
     }
 }
