@@ -27,30 +27,24 @@ let proxyOutputDelegate = ProxyOutputDelegate()
 let sessionQueue = DispatchQueue(label: "Camera.ImageStreamSessionQueue", attributes: [], autoreleaseFrequency: .workItem)
 
 func configureSession(_ outputDelegate: ImageStreamOutputDelegate, _ qos: DispatchQoS, _ settings: CameraSettings, _ input: AVCaptureDeviceInput, _ output: AVCaptureVideoDataOutput) -> StartImageStreamResult {
-    // remove any prior inputs and outputs
-    session.inputs.forEach { input in session.removeInput(input)}
-    session.outputs.forEach { output in session.removeOutput(output)}
-
     // begin and later commit configuration
     session.beginConfiguration()
     defer { session.commitConfiguration() }
 
+    // remove any prior inputs and outputs
+    session.inputs.forEach({ session.removeInput($0) })
+    session.outputs.forEach({ session.removeOutput($0) })
+
     // set preset
-    guard session.canSetSessionPreset(settings.preset) else {
-        return .couldNotSetPreset
-    }
+    guard session.canSetSessionPreset(settings.preset) else { return .couldNotSetPreset }
     session.sessionPreset = settings.preset
 
     // add input
-    guard session.canAddInput(input) else {
-        return .couldNotAddInput
-    }
+    guard session.canAddInput(input) else { return .couldNotAddInput }
     session.addInput(input)
 
     // add ouput
-    guard session.canAddOutput(output) else {
-        return .couldNotAddOutput
-    }
+    guard session.canAddOutput(output) else { return .couldNotAddOutput }
     session.addOutput(output)
 
     // proxy the output delegate and create the output queue
@@ -66,35 +60,25 @@ func configureSession(_ outputDelegate: ImageStreamOutputDelegate, _ qos: Dispat
 public func startImageStreamTo(_ outputDelegate: ImageStreamOutputDelegate, withQualityOf qos: DispatchQoS, using settings: CameraSettings, _ completion: @escaping (StartImageStreamResult) -> Void) {
     sessionQueue.async {
         // verify session is not running
-        guard !session.isRunning else {
-            return completion(.sessionIsAlreadyRunning)
-        }
+        guard !session.isRunning else { return completion(.sessionIsAlreadyRunning) }
 
         // discover the best available device
         let discovered = AVCaptureDevice.DiscoverySession(deviceTypes: settings.deviceTypes, mediaType: .video, position: settings.position)
-        guard let device = discovered.devices.first else {
-            return completion(.couldNotDiscoverAnyDevices)
-        }
+        guard let device = discovered.devices.first else { return completion(.couldNotDiscoverAnyDevices) }
 
         // create the output and input
         let output = AVCaptureVideoDataOutput()
-        guard let input = try? AVCaptureDeviceInput(device: device) else {
-            return completion(.couldNotCreateInput)
-        }
+        guard let input = try? AVCaptureDeviceInput(device: device) else { return completion(.couldNotCreateInput) }
 
         // configure the session
         let result = configureSession(outputDelegate, qos, settings, input, output)
-        guard result == .success else {
-            return completion(result)
-        }
+        guard result == .success else { return completion(result) }
 
         // start the session
         session.startRunning()
 
         // verify session is running
-        guard session.isRunning else {
-            return completion(.sessionFailedToStart)
-        }
+        guard session.isRunning else { return completion(.sessionFailedToStart) }
 
         completion(.success)
     }
@@ -103,9 +87,7 @@ public func startImageStreamTo(_ outputDelegate: ImageStreamOutputDelegate, with
 public func stopImageStream(_ completion: @escaping (StopImageStreamResult) -> Void) {
     sessionQueue.async {
         // verify session is running
-        guard session.isRunning else {
-            return completion(.sessionIsAlreadyNotRunning)
-        }
+        guard session.isRunning else { return completion(.sessionIsAlreadyNotRunning) }
 
         // stop the session
         session.stopRunning()
