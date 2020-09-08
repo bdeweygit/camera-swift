@@ -6,7 +6,7 @@ public typealias CameraSettings = (
     deviceTypes: [AVCaptureDevice.DeviceType]
 )
 
-public enum StartImageStreamResult {
+public enum CameraImageStreamStartResult {
     case success
     case couldNotAddInput
     case couldNotAddOutput
@@ -17,7 +17,7 @@ public enum StartImageStreamResult {
     case couldNotDiscoverAnyDevices
 }
 
-public enum StopImageStreamResult {
+public enum CameraImageStreamStopResult {
     case success
     case sessionIsAlreadyNotRunning
 }
@@ -26,50 +26,50 @@ public protocol CameraImageStreamOutputDelegate: class {
     func cameraImageStreamDidOutput(_ image: CVImageBuffer, at orientation: AVCaptureVideoOrientation)
 }
 
-fileprivate let session = AVCaptureSession()
-fileprivate let proxyOutputDelegate = ProxyOutputDelegate()
-fileprivate let sessionQueue = DispatchQueue(label: "Camera.SessionQueue", attributes: [], autoreleaseFrequency: .workItem)
-
 public struct Camera {
+    private static let session = AVCaptureSession()
+    private static let proxyOutputDelegate = ProxyOutputDelegate()
+    private static let sessionQueue = DispatchQueue(label: "Camera.SessionQueue", attributes: [], autoreleaseFrequency: .workItem)
+
     // MARK: Session Configuration
 
-    private static func configureSession(_ outputDelegate: CameraImageStreamOutputDelegate, _ qos: DispatchQoS, _ settings: CameraSettings, _ input: AVCaptureDeviceInput, _ output: AVCaptureVideoDataOutput) -> StartImageStreamResult {
+    private static func configureSession(_ outputDelegate: CameraImageStreamOutputDelegate, _ qos: DispatchQoS, _ settings: CameraSettings, _ input: AVCaptureDeviceInput, _ output: AVCaptureVideoDataOutput) -> CameraImageStreamStartResult {
         // begin and later commit configuration
-        session.beginConfiguration()
-        defer { session.commitConfiguration() }
+        self.session.beginConfiguration()
+        defer { self.session.commitConfiguration() }
 
         // remove any prior inputs and outputs
-        session.inputs.forEach({ session.removeInput($0) })
-        session.outputs.forEach({ session.removeOutput($0) })
+        self.session.inputs.forEach({ self.session.removeInput($0) })
+        self.session.outputs.forEach({ self.session.removeOutput($0) })
 
         // set preset
-        guard session.canSetSessionPreset(settings.preset) else { return .couldNotSetPreset }
-        session.sessionPreset = settings.preset
+        guard self.session.canSetSessionPreset(settings.preset) else { return .couldNotSetPreset }
+        self.session.sessionPreset = settings.preset
 
         // add input
-        guard session.canAddInput(input) else { return .couldNotAddInput }
-        session.addInput(input)
+        guard self.session.canAddInput(input) else { return .couldNotAddInput }
+        self.session.addInput(input)
 
         // add ouput
-        guard session.canAddOutput(output) else { return .couldNotAddOutput }
-        session.addOutput(output)
+        guard self.session.canAddOutput(output) else { return .couldNotAddOutput }
+        self.session.addOutput(output)
 
         // proxy the output delegate and create the output queue
-        proxyOutputDelegate.proxied = outputDelegate
+        self.proxyOutputDelegate.proxied = outputDelegate
         let outputQueue = DispatchQueue(label: "Camera.ImageStreamOutputQueue", qos: qos, attributes: [], autoreleaseFrequency: .workItem)
 
         // set delegate and queue
-        output.setSampleBufferDelegate(proxyOutputDelegate, queue: outputQueue)
+        output.setSampleBufferDelegate(self.proxyOutputDelegate, queue: outputQueue)
 
         return .success
     }
 
     // MARK: Image Stream Operation
 
-    public static func startImageStream(to outputDelegate: CameraImageStreamOutputDelegate, withQualityOf qos: DispatchQoS, using settings: CameraSettings, _ completion: @escaping (StartImageStreamResult) -> Void) {
-        sessionQueue.async {
+    public static func startImageStream(to outputDelegate: CameraImageStreamOutputDelegate, withQualityOf qos: DispatchQoS, using settings: CameraSettings, _ completion: @escaping (CameraImageStreamStartResult) -> Void) {
+        self.sessionQueue.async {
             // verify session is not running
-            guard !session.isRunning else { return completion(.sessionIsAlreadyRunning) }
+            guard !self.session.isRunning else { return completion(.sessionIsAlreadyRunning) }
 
             // discover the best available device
             let discovered = AVCaptureDevice.DiscoverySession(deviceTypes: settings.deviceTypes, mediaType: .video, position: settings.position)
@@ -84,22 +84,22 @@ public struct Camera {
             guard result == .success else { return completion(result) }
 
             // start the session
-            session.startRunning()
+            self.session.startRunning()
 
             // verify session is running
-            guard session.isRunning else { return completion(.sessionFailedToStart) }
+            guard self.session.isRunning else { return completion(.sessionFailedToStart) }
 
             completion(.success)
         }
     }
 
-    public static func stopImageStream(_ completion: @escaping (StopImageStreamResult) -> Void) {
-        sessionQueue.async {
+    public static func stopImageStream(_ completion: @escaping (CameraImageStreamStopResult) -> Void) {
+        self.sessionQueue.async {
             // verify session is running
-            guard session.isRunning else { return completion(.sessionIsAlreadyNotRunning) }
+            guard self.session.isRunning else { return completion(.sessionIsAlreadyNotRunning) }
 
             // stop the session
-            session.stopRunning()
+            self.session.stopRunning()
 
             completion(.success)
         }
@@ -109,41 +109,41 @@ public struct Camera {
 
     // runtime error
     public static func runtimeErrorNotificationAdd(_ observer: Any, calling selector: Selector) {
-        NotificationCenter.default.addObserver(observer, selector: selector, name: .AVCaptureSessionRuntimeError, object: session)
+        NotificationCenter.default.addObserver(observer, selector: selector, name: .AVCaptureSessionRuntimeError, object: self.session)
     }
     public static func runtimeErrorNotificationRemove(_ observer: Any) {
-        NotificationCenter.default.removeObserver(observer, name: .AVCaptureSessionRuntimeError, object: session)
+        NotificationCenter.default.removeObserver(observer, name: .AVCaptureSessionRuntimeError, object: self.session)
     }
 
     // did start running
     public static func didStartRunningNotificationAdd(_ observer: Any, calling selector: Selector) {
-        NotificationCenter.default.addObserver(observer, selector: selector, name: .AVCaptureSessionDidStartRunning, object: session)
+        NotificationCenter.default.addObserver(observer, selector: selector, name: .AVCaptureSessionDidStartRunning, object: self.session)
     }
     public static func didStartRunningNotificationRemove(_ observer: Any) {
-        NotificationCenter.default.removeObserver(observer, name: .AVCaptureSessionDidStartRunning, object: session)
+        NotificationCenter.default.removeObserver(observer, name: .AVCaptureSessionDidStartRunning, object: self.session)
     }
 
     // did stop running
     public static func didStopRunningNotificationAdd(_ observer: Any, calling selector: Selector) {
-        NotificationCenter.default.addObserver(observer, selector: selector, name: .AVCaptureSessionDidStopRunning, object: session)
+        NotificationCenter.default.addObserver(observer, selector: selector, name: .AVCaptureSessionDidStopRunning, object: self.session)
     }
     public static func didStopRunningNotificationRemove(_ observer: Any) {
-        NotificationCenter.default.removeObserver(observer, name: .AVCaptureSessionDidStopRunning, object: session)
+        NotificationCenter.default.removeObserver(observer, name: .AVCaptureSessionDidStopRunning, object: self.session)
     }
 
     // was interrupted
     public static func wasInterrupedNotificationAdd(_ observer: Any, calling selector: Selector) {
-        NotificationCenter.default.addObserver(observer, selector: selector, name: .AVCaptureSessionWasInterrupted, object: session)
+        NotificationCenter.default.addObserver(observer, selector: selector, name: .AVCaptureSessionWasInterrupted, object: self.session)
     }
     public static func wasInterrupedNotificationRemove(_ observer: Any) {
-        NotificationCenter.default.removeObserver(observer, name: .AVCaptureSessionWasInterrupted, object: session)
+        NotificationCenter.default.removeObserver(observer, name: .AVCaptureSessionWasInterrupted, object: self.session)
     }
 
     // interruption ended
     public static func interruptionEndedNotificationAdd(_ observer: Any, calling selector: Selector) {
-        NotificationCenter.default.addObserver(observer, selector: selector, name: .AVCaptureSessionInterruptionEnded, object: session)
+        NotificationCenter.default.addObserver(observer, selector: selector, name: .AVCaptureSessionInterruptionEnded, object: self.session)
     }
     public static func interruptionEndedNotificationRemove(_ observer: Any) {
-        NotificationCenter.default.removeObserver(observer, name: .AVCaptureSessionInterruptionEnded, object: session)
+        NotificationCenter.default.removeObserver(observer, name: .AVCaptureSessionInterruptionEnded, object: self.session)
     }
 }
