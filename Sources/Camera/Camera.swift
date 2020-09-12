@@ -3,7 +3,8 @@ import AVFoundation
 public typealias CameraSettings = (
     preset: AVCaptureSession.Preset,
     position: AVCaptureDevice.Position,
-    deviceTypes: [AVCaptureDevice.DeviceType]
+    deviceTypes: [AVCaptureDevice.DeviceType],
+    includeDepthMap: Bool
 )
 
 public enum CameraImageStreamStartResult {
@@ -11,6 +12,7 @@ public enum CameraImageStreamStartResult {
     case couldNotAddInput
     case couldNotAddOutput
     case couldNotSetPreset
+    case couldNotLockDevice
     case couldNotCreateInput
     case sessionFailedToStart
     case sessionIsAlreadyRunning
@@ -23,17 +25,18 @@ public enum CameraImageStreamStopResult {
 }
 
 public protocol CameraImageStreamOutputDelegate: class {
-    func cameraImageStreamDidOutput(_ image: CVImageBuffer, at orientation: AVCaptureVideoOrientation)
+    func cameraImageStreamDidOutput(_ image: CVImageBuffer?, _ depthMap: CVImageBuffer?, at orientation: AVCaptureVideoOrientation?)
 }
 
 public struct Camera {
     private static let session = AVCaptureSession()
     private static let proxyOutputDelegate = ProxyOutputDelegate()
+    private static var outputSync: AVCaptureDataOutputSynchronizer?
     private static let sessionQueue = DispatchQueue(label: "Camera.SessionQueue", attributes: [], autoreleaseFrequency: .workItem)
 
     // MARK: Session Configuration
 
-    private static func configureSession(_ outputDelegate: CameraImageStreamOutputDelegate, _ qos: DispatchQoS, _ settings: CameraSettings, _ input: AVCaptureDeviceInput, _ output: AVCaptureVideoDataOutput) -> CameraImageStreamStartResult {
+    private static func configureSession(_ outputDelegate: CameraImageStreamOutputDelegate, _ qos: DispatchQoS, _ settings: CameraSettings, _ input: AVCaptureDeviceInput, _ videoOutput: AVCaptureVideoDataOutput, _ depthOutput: AVCaptureDepthDataOutput?) -> CameraImageStreamStartResult {
         // begin and later commit configuration
         self.session.beginConfiguration()
         defer { self.session.commitConfiguration() }
@@ -50,23 +53,42 @@ public struct Camera {
         guard self.session.canAddInput(input) else { return .couldNotAddInput }
         self.session.addInput(input)
 
-        // add ouput
-        guard self.session.canAddOutput(output) else { return .couldNotAddOutput }
-        self.session.addOutput(output)
+        // add video ouput
+        guard self.session.canAddOutput(videoOutput) else { return .couldNotAddOutput }
+        self.session.addOutput(videoOutput)
+        var dataOutputs: [AVCaptureOutput] = [videoOutput]
+
+        // add depth output
+        if let depthOutput = depthOutput, input.device.activeFormat.supportedDepthDataFormats.count > 0 {
+            guard self.session.canAddOutput(depthOutput) else { return .couldNotAddOutput }
+            self.session.addOutput(depthOutput)
+            dataOutputs.append(depthOutput)
+
+            // smooth depth data
+            depthOutput.isFilteringEnabled = true
+
+            // maximize the device's depth format resolution
+            let depthFormat = input.device.activeFormat.supportedDepthDataFormats.filter({ $0.formatDescription.mediaSubType.rawValue == kCVPixelFormatType_DepthFloat32 }).max(by: { $0.formatDescription.dimensions.width < $1.formatDescription.dimensions.width })
+
+            guard let _ = try? input.device.lockForConfiguration() else { return .couldNotLockDevice }
+            input.device.activeDepthDataFormat = depthFormat
+            input.device.unlockForConfiguration()
+        }
 
         // proxy the output delegate and create the output queue
-        self.proxyOutputDelegate.proxied = outputDelegate
+        self.proxyOutputDelegate.proxy(outputDelegate, withOutputs: videoOutput, depthOutput)
         let outputQueue = DispatchQueue(label: "Camera.ImageStreamOutputQueue", qos: qos, attributes: [], autoreleaseFrequency: .workItem)
 
-        // set delegate and queue
-        output.setSampleBufferDelegate(self.proxyOutputDelegate, queue: outputQueue)
+        // create and setup the output synchronizer
+        self.outputSync = AVCaptureDataOutputSynchronizer(dataOutputs: dataOutputs)
+        self.outputSync!.setDelegate(self.proxyOutputDelegate, queue: outputQueue)
 
         return .success
     }
 
     // MARK: Image Stream Operation
 
-    public static func startImageStream(to outputDelegate: CameraImageStreamOutputDelegate, withQualityOf qos: DispatchQoS, using settings: CameraSettings, _ completion: @escaping (CameraImageStreamStartResult) -> Void) {
+    public static func startImageStream(to outputDelegate: CameraImageStreamOutputDelegate, using settings: CameraSettings, withQualityOf qos: DispatchQoS, _ completion: @escaping (CameraImageStreamStartResult) -> Void) {
         self.sessionQueue.async {
             // verify session is not running
             guard !self.session.isRunning else { return completion(.sessionIsAlreadyRunning) }
@@ -75,12 +97,15 @@ public struct Camera {
             let discovered = AVCaptureDevice.DiscoverySession(deviceTypes: settings.deviceTypes, mediaType: .video, position: settings.position)
             guard let device = discovered.devices.first else { return completion(.couldNotDiscoverAnyDevices) }
 
-            // create the output and input
-            let output = AVCaptureVideoDataOutput()
+            // create the input
             guard let input = try? AVCaptureDeviceInput(device: device) else { return completion(.couldNotCreateInput) }
 
+            // create the video and depth outputs
+            let videoOutput = AVCaptureVideoDataOutput()
+            let depthOutput = settings.includeDepthMap ? AVCaptureDepthDataOutput() : nil
+
             // configure the session
-            let result = self.configureSession(outputDelegate, qos, settings, input, output)
+            let result = self.configureSession(outputDelegate, qos, settings, input, videoOutput, depthOutput)
             guard result == .success else { return completion(result) }
 
             // start the session
