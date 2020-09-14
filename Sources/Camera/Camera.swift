@@ -89,7 +89,7 @@ public struct Camera {
     // MARK: Image Stream Operation
 
     public static func startImageStream(to outputDelegate: CameraImageStreamOutputDelegate, using settings: CameraSettings, withQualityOf qos: DispatchQoS, _ completion: @escaping (CameraImageStreamStartResult) -> Void) {
-        self.sessionQueue.async {
+        self.sessionQueue.async(execute: {
             // verify session is not running
             guard !self.session.isRunning else { return completion(.sessionIsAlreadyRunning) }
 
@@ -115,11 +115,11 @@ public struct Camera {
             guard self.session.isRunning else { return completion(.sessionFailedToStart) }
 
             completion(.success)
-        }
+        })
     }
 
     public static func stopImageStream(_ completion: @escaping (CameraImageStreamStopResult) -> Void) {
-        self.sessionQueue.async {
+        self.sessionQueue.async(execute: {
             // verify session is running
             guard self.session.isRunning else { return completion(.sessionIsAlreadyNotRunning) }
 
@@ -127,7 +127,7 @@ public struct Camera {
             self.session.stopRunning()
 
             completion(.success)
-        }
+        })
     }
 
     // MARK: Notification Observation
