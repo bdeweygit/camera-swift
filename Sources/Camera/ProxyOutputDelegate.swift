@@ -18,7 +18,7 @@ class ProxyOutputDelegate: NSObject, AVCaptureDataOutputSynchronizerDelegate {
         var orientation: AVCaptureVideoOrientation?
 
         // get the image
-        if let videoOutput = self.videoOutput, let syncedSampleBufferData = synchronizedDataCollection.synchronizedData(for: videoOutput) as? AVCaptureSynchronizedSampleBufferData {
+        if let videoOutput = self.videoOutput, let syncedSampleBufferData = synchronizedDataCollection.synchronizedData(for: videoOutput) as? AVCaptureSynchronizedSampleBufferData, !syncedSampleBufferData.sampleBufferWasDropped {
             image = syncedSampleBufferData.sampleBuffer.imageBuffer
 
             // get the orientation
